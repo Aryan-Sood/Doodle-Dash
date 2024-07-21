@@ -39,12 +39,54 @@ io.on('connection', (socket) => {
 
             room.players.push(player);
             room = await room.save();
-            socket.join(room);
+            socket.join(name);
             io.to(name).emit('updateRoom', room);
         }
         catch(err){
             console.log(error);
         }
+    })
+
+    socket.on('join-game', async({nickname, name}) => {
+        try{
+            let room = await Room.findOne({name});
+            if (!room){
+                socket.emit('notCorrectGame', 'Please enter valid room name');
+                return;
+            }
+            if (room.isJoin){
+                let player = {
+                    socketID: socket.id,
+                    nickname,
+                }
+                room.players.push(player);
+                socket.join(name);
+                if (room.players.length === room.occupancy){
+                    room.isJoin = false;
+                }
+                room.turn = room.players[room.turnIndex];
+                room = await room.save();
+                io.to(name).emit('updateRoom', room);
+            }
+            else{
+                socket.emit('notCorrectGame', 'The gameis in progress try again later');
+            }
+        }
+        catch(error){
+            console.log(error);
+        }
+    })
+
+    socket.on('paint', ({details, roomName}) => {
+        io.to(roomName).emit('points', {details: details})
+    })
+
+    socket.on('color-change', ({color, roomName}) => {
+        io.to(roomName).emit('color-change', color);
+    })
+
+    socket.on('stroke-width', ({value, roomName}) => {
+        io.to(roomName).emit('stroke-width', value);
     })
 })
 
